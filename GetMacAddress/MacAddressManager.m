@@ -10,13 +10,16 @@
 #import <resolv.h>
 #import <netdb.h>
 
+
 #define MDNS_PORT 5353
 #define QUERY_NAME "_apple-mobdev2._tcp.local"
+
+
 @implementation MacAddressManager
 
 + (nullable NSString *)getMacAddressFromMDNS {
-    res_init();
-    
+    res_9_init();
+     int len;
     //get currnet ip address
     NSString *ip = [Address currentIPAddressOf:@"en0"];
     if(ip == nil) {
@@ -31,9 +34,11 @@
     _res.nscount = 1;
     
     unsigned char response[NS_PACKETSZ];
-    int len;
+   
+    
     //send mdns query
-    if((len = res_query(QUERY_NAME, ns_c_in, ns_t_ptr, response, sizeof(response))) < 0) {
+    if((len = res_9_query(QUERY_NAME, ns_c_in, ns_t_ptr, response, sizeof(response))) < 0) {
+        
         fprintf(stderr, "res_search(): %s\n", hstrerror(h_errno));
         return nil;
     }//end if
@@ -81,7 +86,7 @@
 @end
 
 
-
+#import "MacAddressManager.h"
 #import <ifaddrs.h>
 #import <netinet/ip.h>
 #import <arpa/inet.h>
@@ -116,14 +121,50 @@
 
 + (nullable NSString *)IPv4Ntop: (in_addr_t)addr {
     char buffer[INET_ADDRSTRLEN] = {0};
-    return inet_ntop(AF_INET, &addr, buffer, sizeof(buffer)) ? [NSString stringWithUTF8String:buffer] : nil;
+    return inet_ntop(AF_INET, &addr, buffer, sizeof(buffer)) ?
+    [NSString stringWithUTF8String:buffer] : nil;
 }//end IPv4Ntop:
 
 + (in_addr_t)IPv4Pton: (nonnull NSString *)IPAddr {
     in_addr_t network = INADDR_NONE;
-    return inet_pton(AF_INET, [IPAddr UTF8String], &network) == 1 ? network : INADDR_NONE;
+    return inet_pton(AF_INET, [IPAddr UTF8String], &network) == 1 ?
+    network : INADDR_NONE;
 }//end IPv4Pton:
++ (nullable NSString *)linkLayerNtop: (nonnull struct sockaddr_dl *)sdl {
+    if(sdl->sdl_alen == 0) {
+        return nil;
+    }//end if
+    
+    NSMutableString *buf = [[NSMutableString alloc] initWithString:@""];
+    char *cp = (char *)LLADDR(sdl);
+    int n;
+    
+    if ((n = sdl->sdl_alen) > 0) {
+        while (--n >= 0) {
+            [buf appendFormat:@"%02x%s", *cp++ & 0xff, n > 0 ? ":" : ""];
+        }//end if
+    }//end if
+    
+    return [NSString stringWithString:buf];
+}//end linkLayerNtop:
 
++ (BOOL)macAddress: (nonnull NSString *)addr1 isEqualTo:(nonnull NSString *)addr2 {
+    struct ether_addr ether_addr1, ether_addr2;
+    
+    struct ether_addr *tmp;
+    
+    tmp = ether_aton(([addr1 UTF8String]));
+    if(!tmp)
+        return NO;
+    memcpy(&ether_addr1, tmp, sizeof(ether_addr1));
+    
+    tmp = ether_aton([addr2 UTF8String]);
+    if(!tmp)
+        return NO;
+    memcpy(&ether_addr2, tmp, sizeof(ether_addr2));
+    
+    return memcmp(&ether_addr1, &ether_addr2, sizeof(struct ether_addr)) == 0 ? YES : NO;
+}//end macAddress: isEqualTo:
 
 
 @end
